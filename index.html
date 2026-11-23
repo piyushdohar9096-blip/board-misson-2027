@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#090A0D" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="BOARD MISSION 2027" />
+  <title>BOARD MISSION 2027 — CBSE Class 12 Study Command Center</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Display", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-[#090A0D] text-[#F4F5F7] antialiased selection:bg-[#4F8EF7]/30">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    const Icon = ({ name, size = 18, className = "" }) => {
+      const containerRef = useRef(null);
+      useEffect(() => {
+        if (containerRef.current && window.lucide) {
+          containerRef.current.innerHTML = `<i data-lucide="${name}"></i>`;
+          window.lucide.createIcons({
+            root: containerRef.current,
+            attrs: { width: size, height: size, class: className }
+          });
+        }
+      }, [name, size, className]);
+      return <span ref={containerRef} className="inline-flex items-center justify-center shrink-0" />;
+    };
+
+    const DB_NAME = 'BoardMission2027DB';
+    const STORE_NAME = 'appState';
+    const DB_VERSION = 1;
+
+    const openDB = () => {
+      return new Promise((resolve, reject) => {
+        if (!window.indexedDB) { reject(new Error('IndexedDB not supported')); return; }
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    };
+
+    const saveAppState = async (state) => {
+      try {
+        localStorage.setItem('BM2027_BACKUP_SYNC', JSON.stringify(state));
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_NAME, 'readwrite');
+          tx.objectStore(STORE_NAME).put(state, 'main');
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => reject(tx.error);
+        });
+      } catch (err) {
+        return false;
+      }
+    };
+
+    const loadAppState = async () => {
+      try {
+        const db = await openDB();
+        const dbData = await new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_NAME, 'readonly');
+          const req = tx.objectStore(STORE_NAME).get('main');
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        });
+        if (dbData) return dbData;
+      } catch (err) {}
+      try {
+        const lsData = localStorage.getItem('BM2027_BACKUP_SYNC');
+        return lsData ? JSON.parse(lsData) : null;
+      } catch {
+        return null;
+      }
+    };
+
+    const SUBJECTS_META = [
+      {
+        id: 'maths', name: 'Mathematics', code: '041', short: 'Maths',
+        examDate: '2027-03-09', examTime: '10:30 AM – 1:30 PM', dailyTargetMin: 90,
+        priority: 'Very High: Daily concept + written problem practice', accent: '#4F8EF7',
+        chapters: [
+          'Relations and Functions', 'Inverse Trigonometric Functions', 'Matrices', 'Determinants',
+          'Continuity and Differentiability', 'Applications of Derivatives', 'Integrals',
+          'Applications of Integrals', 'Differential Equations', 'Vectors',
+          'Three-dimensional Geometry', 'Linear Programming', 'Probability'
+        ]
+      },
+      {
+        id: 'physics', name: 'Physics', code: '042', short: 'Physics',
+        examDate: '2027-02-16', examTime: '10:30 AM – 1:30 PM', dailyTargetMin: 90,
+        priority: 'Very High: Concepts, formula use, derivations, numericals', accent: '#38BDF8',
+        chapters: [
+          'Electric Charges and Fields', 'Electrostatic Potential and Capacitance', 'Current Electricity',
+          'Moving Charges and Magnetism', 'Magnetism and Matter', 'Electromagnetic Induction',
+          'Alternating Current', 'Electromagnetic Waves', 'Ray Optics and Optical Instruments',
+          'Wave Optics', 'Dual Nature of Radiation and Matter', 'Atoms', 'Nuclei',
+          'Semiconductor Electronics: Materials, Devices and Simple Circuits'
+        ]
+      },
+      {
+        id: 'chemistry', name: 'Chemistry', code: '043', short: 'Chemistry',
+        examDate: '2027-02-27', examTime: '10:30 AM – 1:30 PM', dailyTargetMin: 90,
+        priority: 'Very High: Physical numericals + Inorganic NCERT + Organic reactions', accent: '#818CF8',
+        chapters: [
+          'Solutions', 'Electrochemistry', 'Chemical Kinetics', 'd- and f-Block Elements',
+          'Coordination Compounds', 'Haloalkanes and Haloarenes', 'Alcohols, Phenols and Ethers',
+          'Aldehydes, Ketones and Carboxylic Acids', 'Amines', 'Biomolecules'
+        ]
+      },
+      {
+        id: 'english', name: 'English Core', code: '301', short: 'English',
+        examDate: '2027-03-05', examTime: '10:30 AM – 1:30 PM', dailyTargetMin: 45,
+        priority: 'Maintain with short, frequent literature & writing practice', accent: '#94A3B8',
+        chapters: [
+          'Flamingo: The Last Lesson', 'Flamingo: Lost Spring', 'Flamingo: Deep Water',
+          'Flamingo: The Rattrap', 'Flamingo: Indigo', 'Flamingo: Poets and Pancakes',
+          'Flamingo: The Interview', 'Flamingo: Going Places', 'Poetry: All Five Prescribed Poems',
+          'Vistas: The Third Level / The Tiger King', 'Vistas: Journey to the End of the Earth / The Enemy',
+          'Vistas: On the Face of It / Memories of Childhood', 'Reading + Creative Writing Skills'
+        ]
+      },
+      {
+        id: 'pe', name: 'Physical Education', code: '048', short: 'PE',
+        examDate: '2027-02-18', examTime: '10:30 AM – 1:30 PM', dailyTargetMin: 45,
+        priority: 'One unit at a time: definitions, tables, diagrams, case questions', accent: '#34D399',
+        chapters: [
+          'Unit 1: Management of Sporting Events', 'Unit 2: Children and Women in Sports',
+          'Unit 3: Yoga as Preventive Measure for Lifestyle Disease', 'Unit 4: Physical Education and Sports for CWSN',
+          'Unit 5: Sports and Nutrition', 'Unit 6: Test and Measurement in Sports',
+          'Unit 7: Physiology and Injuries in Sport', 'Unit 8: Biomechanics and Sports',
+          'Unit 9: Psychology and Sports', 'Unit 10: Training in Sports',
+          'Practical Record & Selected IOA Sport'
+        ]
+      },
+      {
+        id: 'music', name: 'Hindustani Music - Vocal', code: '034', short: 'Music 034',
+        examDate: '2027-03-15', examTime: '10:30 AM – 12:30 PM', dailyTargetMin: 45,
+        priority: 'Theory (30M) + Regular supervised raga, tala & file work (70M)', accent: '#C084FC',
+        chapters: [
+          'Unit 1: Musical Terms (Alankar, Kan, Meend, Khatka, Murki, Gamak, Gram, Murchhana, Alap, Tana)',
+          'Unit 2: Historical Time Theory of Ragas',
+          'Unit 3: Sangeet Parijat + Musician Biographies (Faiyaz Khan, Bade Ghulam Ali, Krishna Rao, Shankar Pandit)',
+          'Unit 4: Jhaptaal, Rupak, Dhamar + Tanpura Tuning',
+          'Unit 5: Ragas Bhairav, Bageshri, Malkauns + Notation',
+          'Practical: Vilambit & Drut Khayal', 'Practical: Tarana & Dhamar',
+          'Practical: Raga Identification', 'Practical: Tala Recitation & Layakari',
+          'Practical: Tanpura Tuning & Practical File'
+        ]
+      }
+    ];
+
+    const STAGE_KEYS = [
+      { key: 'theory', label: 'Theory' },
+      { key: 'ncert', label: 'NCERT' },
+      { key: 'practice', label: 'Practice' },
+      { key: 'rev1', label: '1st rev.' },
+      { key: 'rev2', label: '2nd rev.' },
+      { key: 'test', label: 'Test' }
+    ];
+
+    const DAILY_ROUTINE_BLOCKS = [
+      { time: '06:30 – 08:00', session: 'Mathematics: new concept + examples', mins: 90, counted: true },
+      { time: '08:00 – 08:20', session: 'Break / breakfast', mins: 20, counted: false },
+      { time: '08:20 – 09:50', session: 'Physics: concept + derivation/formula', mins: 90, counted: true },
+      { time: '09:50 – 10:05', session: 'Short break', mins: 15, counted: false },
+      { time: '10:05 – 11:35', session: 'Chemistry: NCERT theory/numerical/reaction', mins: 90, counted: true },
+      { time: '11:35 – 13:00', session: 'Meal / rest', mins: 85, counted: false },
+      { time: '13:00 – 14:00', session: 'Maths / Physics / Chemistry written practice (rotate)', mins: 60, counted: true },
+      { time: '14:00 – 14:15', session: 'Short break', mins: 15, counted: false },
+      { time: '14:15 – 15:00', session: 'English (M/W/F) / PE (Tu/Th) / Music (Sa/Su)', mins: 45, counted: true },
+      { time: '15:00 – 15:15', session: 'Short break', mins: 15, counted: false },
+      { time: '15:15 – 16:00', session: 'Backlog recovery + active recall + error log', mins: 45, counted: true }
+    ];
+
+    const WEEKLY_TESTS_DATA = [
+      { id: 'wt-1', date: '2026-12-06', scope: 'Maths: Relations/Functions + Inverse Trig; Physics: Electrostatics basics', marks: '20 marks / 45 min', focus: 'Can you start independently? Definitions, domains, formula choice.' },
+      { id: 'wt-2', date: '2026-12-13', scope: 'Chemistry: Solutions + Electrochemistry basics; English: Last Lesson/Lost Spring', marks: '25 marks / 50 min', focus: 'Numerical setup, units, NCERT detail, answer evidence.' },
+      { id: 'wt-3', date: '2026-12-20', scope: 'Physics: Current Electricity + Magnetism; PE Units 1-2', marks: '30 marks / 60 min', focus: 'Circuit method, diagrams, fixture accuracy, terminology.' },
+      { id: 'wt-4', date: '2026-12-27', scope: 'Maths: Matrices/Determinants + Calculus starter; Music Units 1-3', marks: '30 marks / 60 min', focus: 'Working steps, algebra accuracy, theory recall.' },
+      { id: 'wt-5', date: '2027-01-03', scope: 'Chemistry: Kinetics, d/f Block, Coordination; English writing', marks: '35 marks / 70 min', focus: 'Formula application, NCERT facts, format and word limit.' },
+      { id: 'wt-6', date: '2027-01-10', scope: 'Physics: EMI/AC/Optics + PE Units 3-6', marks: '40 marks / 75 min', focus: 'Derivation, ray diagrams, case-based recall.' },
+      { id: 'wt-7', date: '2027-01-17', scope: 'Maths + Physics + Chemistry mixed first-revision test', marks: '45 marks / 90 min', focus: 'Prioritisation, time allocation, error patterns.' },
+      { id: 'wt-8', date: '2027-01-24', scope: 'All six subjects: mixed short test', marks: 'Approx. 80 marks / 3 hrs', focus: 'Syllabus coverage and weak-topic list.' },
+      { id: 'wt-9', date: '2027-01-31', scope: 'Phase 3 Daily Timed Subject Tests (25–31 Jan)', marks: '60–90 min per subject', focus: 'Board presentation, accuracy, speed and reattempts.' }
+    ];
+
+    const PRACTICAL_SECTIONS_INIT = [
+      {
+        id: 'prac-phys', subject: 'Physics (042)', title: 'Physics Practical File, Experiments & Viva',
+        items: [
+          { id: 'pp1', text: 'Index and experiment write-ups as instructed', done: false },
+          { id: 'pp2', text: 'Neat labelled circuit & optical diagrams', done: false },
+          { id: 'pp3', text: 'Observations, tabular columns & calculations', done: false },
+          { id: 'pp4', text: 'Investigatory project work if assigned', done: false },
+          { id: 'pp5', text: 'Apparatus identification, sources of error & precautions for viva', done: false }
+        ]
+      },
+      {
+        id: 'prac-chem', subject: 'Chemistry (043)', title: 'Chemistry Practical File, Experiments & Viva',
+        items: [
+          { id: 'pc1', text: 'Volumetric analysis (titration setup & calculations)', done: false },
+          { id: 'pc2', text: 'Qualitative Salt Analysis (ions listed in 2026-27 curriculum)', done: false },
+          { id: 'pc3', text: 'Content-based experiment & pH/equilibrium practicals', done: false },
+          { id: 'pc4', text: 'Investigatory Project report & viva questions', done: false },
+          { id: 'pc5', text: 'Apparatus & safety protocols verified with teacher', done: false }
+        ]
+      },
+      {
+        id: 'prac-pe', subject: 'Physical Education (048)', title: 'PE Practical Record & Chosen IOA Sport',
+        items: [
+          { id: 'ppe1', text: 'SAI Khelo India fitness tests administration & records', done: false },
+          { id: 'ppe2', text: 'Two asanas for each lifestyle disease: procedure, benefits, contraindications', done: false },
+          { id: 'ppe3', text: 'Chosen IOA-recognised sport: field/equipment labelled diagram, rules, terms & skills', done: false }
+        ]
+      },
+      {
+        id: 'prac-music', subject: 'Music Vocal (034)', title: 'Music Practical (70 Marks) & File',
+        items: [
+          { id: 'pm1', text: 'Vilambit and Drut Khayal in prescribed ragas (Bhairav, Bageshri, Malkauns)', done: false },
+          { id: 'pm2', text: 'Tarana and Dhamar supervised recitation', done: false },
+          { id: 'pm3', text: 'Raga identification from swara phrases', done: false },
+          { id: 'pm4', text: 'Jhaptaal, Rupak, Dhamar theka & layakari (thah/dugun/tigun/chaugun)', done: false },
+          { id: 'pm5', text: 'Tanpura parts & live tuning explanation', done: false },
+          { id: 'pm6', text: 'Practical file: artist-style analysis, compositions & tala notations', done: false }
+        ]
+      },
+      {
+        id: 'prac-eng', subject: 'English Core (301)', title: 'English Internal Assessment (ALS & Project)',
+        items: [
+          { id: 'pe1', text: 'Listening assessment practice', done: false },
+          { id: 'pe2', text: 'Speaking assessment preparation', done: false },
+          { id: 'pe3', text: 'ALS Project work, rubric & viva presentation', done: false }
+        ]
+      },
+      {
+        id: 'prac-school', subject: 'School / Admin', title: 'School Submissions & Admit Card Verification',
+        items: [
+          { id: 'ps1', text: 'Confirm LOC subject codes (041, 042, 043, 301, 048, 034)', done: false },
+          { id: 'ps2', text: 'Verify teacher signatures on all practical & project files', done: false },
+          { id: 'ps3', text: 'Confirm official school practical exam dates', done: false }
+        ]
+      }
+    ];
+
+    const BOARD_CHECKLIST_INIT = [
+      { id: 'bc-1', text: 'Subject codes on admit card match 041, 042, 043, 301, 048 and 034.', done: false },
+      { id: 'bc-2', text: 'Official date sheet and any corrigenda checked on CBSE website.', done: false },
+      { id: 'bc-3', text: 'Practical files, projects, internal assessment and school signatures confirmed.', done: false },
+      { id: 'bc-4', text: 'NCERT textbooks and current 2026-27 syllabus used; excluded/formative-only topics skipped.', done: false },
+      { id: 'bc-5', text: 'Formula notebook updated for Mathematics, Physics and Physical Chemistry.', done: false },
+      { id: 'bc-6', text: 'Organic reaction map and inorganic NCERT recall tables updated.', done: false },
+      { id: 'bc-7', text: 'English writing formats and prescribed literature texts revised.', done: false },
+      { id: 'bc-8', text: 'PE units, fixtures, yoga tables, test protocols and diagrams revised.', done: false },
+      { id: 'bc-9', text: 'Music theory, raga profiles, notation, talas, practical file and supervised performance ready.', done: false },
+      { id: 'bc-10', text: 'At least one full timed paper completed per major theory subject; errors analysed.', done: false },
+      { id: 'bc-11', text: 'Common mistakes reviewed: misread question, skipped steps, units, diagrams, word limits and time allocation.', done: false },
+      { id: 'bc-12', text: 'Stationery, permitted materials, travel plan and reporting time checked with admit-card instructions.', done: false },
+      { id: 'bc-13', text: 'Sleep schedule protected in the final week; no all-night catch-up.', done: false }
+    ];
+
+    const PHASE_1_DAYS = [
+      {
+        day: 1, date: '2026-12-01', label: 'Tue, 01 Dec 2026',
+        tasks: [
+          { subjectId: 'maths', chapter: 'Relations and Functions', topic: 'Relations: reflexive, symmetric, transitive, equivalence; one-one/onto', output: 'NCERT examples; 8 classification questions', mins: 90 },
+          { subjectId: 'physics', chapter: 'Electric Charges and Fields', topic: 'Charge, conservation, Coulomb law, superposition, continuous distribution', output: '4 basic numericals; draw field lines', mins: 90 },
+          { subjectId: 'chemistry', chapter: 'Solutions', topic: 'Types of solutions, concentration expressions, solubility, vapour pressure', output: '5 numericals: concentration & vapour pressure', mins: 90 },
+          { subjectId: 'english', chapter: 'Flamingo: The Last Lesson', topic: 'Context, Franz, M. Hamel, language/identity theme', output: 'One 40-50w answer + theme paragraph', mins: 45 },
+          { subjectId: 'pe', chapter: 'Unit 1: Management of Sporting Events', topic: 'Planning, organising, staffing, directing, controlling', output: 'Write definitions + 5-mark outline', mins: 45 },
+          { subjectId: 'music', chapter: 'Unit 1: Musical Terms', topic: 'Alankar, Kan, Meend, Khatka, Murki, Gamak', output: '6 definitions + examples as taught', mins: 45 }
+        ]
+      },
+      {
+        day: 2, date: '2026-12-02', label: 'Wed, 02 Dec 2026',
+        tasks: [
+          { subjectId: 'maths', chapter: 'Inverse Trigonometric Functions', topic: 'Definition, principal value branches, domain/range & graphs', output: '6-8 domain/range & principal-value Qs', mins: 90 },
+          { subjectId: 'physics', chapter: 'Electric Charges and Fields', topic: 'Electric field, dipole, torque, flux & Gauss theorem applications', output: '4 numericals; Gauss-law applications & diagram', mins: 90 },
+          { subjectId: 'chemistry', chapter: 'Solutions', topic: 'Ideal/non-ideal solutions, colligative properties, abnormal molar mass', output: '5 numericals; formula sheet with units', mins: 90 },
+          { subjectId: 'english', chapter: 'Flamingo: Lost Spring', topic: 'Saheb, Mukesh, poverty/childhood & author stance', output: '2 short answers; evidence-based', mins: 45 },
+          { subjectId: 'pe', chapter: 'Unit 1: Management of Sporting Events', topic: 'Committees & responsibilities before/during/after event', output: 'Committee table from memory', mins: 45 },
+          { subjectId: 'music', chapter: 'Unit 1: Musical Terms', topic: 'Gram, Murchhana, Alap and Tana', output: '4 definitions; 1-page terminology sheet', mins: 45 }
+        ]
+      },
+      {
+        day: 3, date: '2026-12-03', label: 'Thu, 03 Dec 2026',
+        tasks: [
+          { subjectId: 'maths', chapter: 'Matrices', topic: 'Order, equality, types, zero/identity, transpose, symmetric/skew-symmetric', output: '6 examples + 6 short exercise Qs', mins: 90 },
+          { subjectId: 'physics', chapter: 'Electrostatic Potential and Capacitance', topic: 'Potential, potential difference, equipotential surfaces, potential energy', output: '4 NCERT examples/Qs; formula card', mins: 90 },
+          { subjectId: 'chemistry', chapter: 'Electrochemistry', topic: 'Electrochemical/galvanic cells, cell notation, electrode potential, Nernst eq.', output: '5 numericals + cell diagram', mins: 90 },
+          { subjectId: 'english', chapter: 'Flamingo: Deep Water', topic: 'Fear, persistence, narrative arc & transformation', output: '2 short answers + 120-word response', mins: 45 },
+          { subjectId: 'pe', chapter: 'Unit 1: Management of Sporting Events', topic: 'Knockout fixtures: byes and seeding', output: 'Draw 2 fixtures; check byes', mins: 45 },
+          { subjectId: 'music', chapter: 'Unit 2: Historical Time Theory of Ragas', topic: 'Historical development of time theory of ragas', output: 'Timeline + 5 short questions', mins: 45 }
+        ]
+      },
+      {
+        day: 4, date: '2026-12-04', label: 'Fri, 04 Dec 2026',
+        tasks: [
+          { subjectId: 'maths', chapter: 'Matrices', topic: 'Addition, scalar multiplication, multiplication, non-commutativity', output: '8 matrix operation Qs; write properties', mins: 90 },
+          { subjectId: 'physics', chapter: 'Electrostatic Potential and Capacitance', topic: 'Capacitance, parallel-plate capacitor, dielectrics, combinations & energy', output: '4 numericals + 1 derivation/diagram', mins: 90 },
+          { subjectId: 'chemistry', chapter: 'Electrochemistry', topic: 'Conductance, molar conductivity, electrolysis, batteries, fuel cells, corrosion', output: '5 numericals/concept Qs; NCERT recall', mins: 90 },
+          { subjectId: 'english', chapter: 'Flamingo: The Rattrap', topic: 'Peddler, compassion, symbolism & theme', output: '2 short answers', mins: 45 },
+          { subjectId: 'pe', chapter: 'Unit 1: Management of Sporting Events', topic: 'League fixtures: staircase, cyclic & tabular methods', output: 'Draw 1 fixture of each type', mins: 45 },
+          { subjectId: 'music', chapter: 'Unit 3: Sangeet Parijat', topic: 'Sangeet Parijat: author/context, key ideas & syllabus detail', output: 'One structured answer', mins: 45 }
+        ]
+      },
+      {
+        day: 5, date: '2026-12-05', label: 'Sat, 05 Dec 2026',
+        tasks: [
+          { subjectId: 'maths', chapter: 'Matrices', topic: 'Invertibility and uniqueness of inverse; 2x2 and 3x3 practice', output: '6 inverse-related Qs; check arithmetic', mins: 90 },
+          { subjectId: 'physics', chapter: 'Current Electricity', topic: 'Current, drift velocity, mobility, Ohm law, resistivity & temp dependence', output: '5 numericals; write units & graph', mins: 90 },
+          { subjectId: 'chemistry', chapter: 'Chemical Kinetics', topic: 'Rate, rate law, order, molecularity, factors affecting rate', output: '5 basic rate-law questions', mins: 90 },
+          { subjectId: 'english', chapter: 'Flamingo: Indigo', topic: 'Champaran, Gandhi method & change', output: 'One 120-150w analytical answer', mins: 45 },
+          { subjectId: 'pe', chapter: 'Unit 1: Management of Sporting Events', topic: 'Combination tournaments; intramural/extramural; community sports', output: 'Comparison table + 5 short answers', mins: 45 },
+          { subjectId: 'music', chapter: 'Unit 3: Musician Biographies', topic: 'Faiyaz Khan and Bade Ghulam Ali Khan: life & contribution', output: 'Two biography cards', mins: 45 }
+        ]
+      },
+      {
+        day: 6, date: '2026-12-06', label: 'Sun, 06 Dec 2026 (Weekly Test)',
+        tasks: [
+          { subjectId: 'maths', chapter: 'Determinants', topic: 'Determinant up to 3x3; minors, cofactors & syllabus properties', output: '6 determinant evals + 3 cofactor Qs', mins: 90 },
+          { subjectId: 'physics', chapter: 'Current Electricity', topic: 'Cells, EMF/internal resistance, series/parallel, Kirchhoff rules, Wheatstone bridge', output: '5 circuit Qs; 1 Kirchhoff derivation', mins: 90 },
+          { subjectId: 'chemistry', chapter: 'Chemical Kinetics', topic: 'Integrated rate equations, half-life, temp dependence & collision theory', output: '5 numericals + graphs', mins: 90 },
+          { subjectId: 'english', chapter: 'Flamingo: Poets and Pancakes', topic: 'Setting, satire & film studio context', output: '2 short answers', mins: 45 },
+          { subjectId: 'pe', chapter: 'Unit 2: Children and Women in Sports', topic: 'WHO exercise guidelines; postural deformities & corrective measures', output: 'Deformity table + labelled sketches', mins: 45 },
+          { subjectId: 'music', chapter: 'Unit 3: Musician Biographies', topic: 'Krishna Rao Shankar Pandit: life & contribution', output: 'Biography card + weekly review', mins: 45 }
+        ]
+      }
+    ];
+
+    const buildInitialState = () => {
+      const chapters = {};
+      SUBJECTS_META.forEach((sub) => {
+        sub.chapters.forEach((title, idx) => {
+          const id = `${sub.id}-ch-${idx + 1}`;
+          chapters[id] = {
+            id, subjectId: sub.id, index: idx + 1, title,
+            stages: { theory: false, ncert: false, practice: false, rev1: false, rev2: false, test: false },
+            weakTopics: '', notes: '', lastRevised: null
+          };
+        });
+      });
+
+      const tasks = [];
+      PHASE_1_DAYS.forEach((d) => {
+        d.tasks.forEach((t, idx) => {
+          tasks.push({
+            id: `pdf-${d.date}-${t.subjectId}-${idx}`, date: d.date, phase: 'Phase 1: First Pass',
+            subjectId: t.subjectId, chapterTitle: t.chapter, title: t.topic, output: t.output,
+            estimatedMins: t.mins, actualMins: 0, status: 'pending', completedDate: null,
+            notes: '', isCustom: false, priority: 'H'
+          });
+        });
+      });
+
+      const extraSamples = [
+        { date: '2027-01-15', phase: 'Phase 2: 1st Revision', subjectId: 'maths', chapter: 'Relations & Matrices/Det.', title: 'Phase 2 Revision: 12 mixed questions closed-book recall', output: 'Recall sheet + written answers', mins: 90 },
+        { date: '2027-01-15', phase: 'Phase 2: 1st Revision', subjectId: 'physics', chapter: 'Electrostatics', title: 'Phase 2 Revision: 6 numericals + Gauss-law derivation', output: 'Derivation + error log', mins: 90 },
+        { date: '2027-01-15', phase: 'Phase 2: 1st Revision', subjectId: 'chemistry', chapter: 'Solutions', title: 'Phase 2 Revision: 6 colligative & vapour pressure numericals', output: 'Formula check + units', mins: 90 },
+        { date: '2027-01-24', phase: 'Phase 2: 1st Revision', subjectId: 'physics', chapter: 'All 14 Chapters', title: 'Closed-Book Syllabus Sweep: 45-min mixed test + top-5 weak list', output: 'Weakness audit', mins: 60 },
+        { date: '2027-01-25', phase: 'Phase 3: 2nd Rev + Tests', subjectId: 'maths', chapter: 'Relations, Algebra, Calculus', title: 'Phase 3 Timed Test: 90-min mixed paper + mistake classification', output: 'Reattempt wrong Qs', mins: 90 },
+        { date: '2027-01-26', phase: 'Phase 3: 2nd Rev + Tests', subjectId: 'physics', chapter: 'Electrostatics, Current, Magnetism', title: 'Phase 3 Timed Test: 90-min mixed test + derivation audit', output: 'Error log update', mins: 90 },
+        { date: '2027-01-27', phase: 'Phase 3: 2nd Rev + Tests', subjectId: 'chemistry', chapter: 'Physical + Inorganic', title: 'Phase 3 Timed Test: 90-min mixed test + NCERT line verification', output: 'Reaction/formula check', mins: 90 },
+        { date: '2027-01-31', phase: 'Phase 3: 2nd Rev + Tests', subjectId: 'maths', chapter: 'Consolidation Day', title: 'Review entire mistake notebook, repeat wrong Qs, set Feb priorities', output: '45-min mixed test', mins: 90 },
+        { date: '2027-02-01', phase: 'Phase 4: Board Bridge', subjectId: 'physics', chapter: 'Full Syllabus Mock #1', title: 'Board Bridge: Full 3-hour timed Physics paper + error analysis', output: 'Complete paper review', mins: 180 },
+        { date: '2027-02-15', phase: 'Phase 4: Board Bridge', subjectId: 'physics', chapter: 'Pre-Exam Day', title: 'Light Physics formula/diagram recall only; pack stationery & sleep early', output: 'Exam readiness', mins: 90 },
+        { date: '2027-02-17', phase: 'Phase 4: Board Bridge', subjectId: 'pe', chapter: 'PE Final Revision', title: 'Fixtures, committees, yoga tables, test protocols & case-based Qs', output: 'Full recall', mins: 120 },
+        { date: '2027-02-24', phase: 'Phase 4: Board Bridge', subjectId: 'chemistry', chapter: 'Chemistry Final Stretch', title: 'Full 3-hour Chemistry paper + named reactions & NCERT exceptions', output: 'Full paper check', mins: 180 },
+        { date: '2027-03-04', phase: 'Phase 4: Board Bridge', subjectId: 'english', chapter: 'English Pre-Exam', title: 'Revise writing formats (Notice, Invitation, Letter, Article/Report) & themes', output: 'Format checklist', mins: 90 },
+        { date: '2027-03-07', phase: 'Phase 4: Board Bridge', subjectId: 'maths', chapter: 'Maths Final Stretch', title: 'Timed 3-hour Maths sample paper + Calculus/Vectors/3D error fix', output: 'Full working check', mins: 180 },
+        { date: '2027-03-13', phase: 'Phase 4: Board Bridge', subjectId: 'music', chapter: 'Music 034 Theory Mock', title: 'Two-hour 30-mark theory mock + Raga/Tala/Sangeet Parijat sweep', output: 'Theory & file audit', mins: 120 }
+      ];
+      extraSamples.forEach((t, i) => {
+        tasks.push({
+          id: `pdf-ex-${i}`, date: t.date, phase: t.phase, subjectId: t.subjectId,
+          chapterTitle: t.chapter, title: t.title, output: t.output,
+          estimatedMins: t.mins, actualMins: 0, status: 'pending', completedDate: null,
+          notes: '', isCustom: false, priority: 'H'
+        });
+      });
+
+      return {
+        version: '2.0.0', activeDate: '2026-12-01', theme: 'dark', chapters, tasks,
+        studySessions: [], tests: [], practicals: PRACTICAL_SECTIONS_INIT,
+        boardChecklist: BOARD_CHECKLIST_INIT, lastBackupDate: null, lastUpdated: new Date().toISOString()
+      };
+    };
+
+    const ProgressRing = ({ percent = 0, size = 112, stroke = 8, color = '#4F8EF7', label, sublabel, isDark }) => {
+      const radius = (size - stroke) / 2;
+      const circumference = radius * 2 * Math.PI;
+      const offset = circumference - (Math.min(100, Math.max(0, percent)) / 100) * circumference;
+
+      return (
+        <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
+          <svg width={size} height={size} className="-rotate-90 transform">
+            <circle cx={size / 2} cy={size / 2} r={radius} stroke={isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)'} strokeWidth={stroke} fill="transparent" />
+            <circle cx={size / 2} cy={size / 2} r={radius} stroke={color} strokeWidth={stroke} strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" fill="transparent" className="transition-all duration-700 ease-out" />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+            <span className={`text-xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>{Math.round(percent)}%</span>
+            {label && <span className={`text-[10px] font-medium uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>{label}</span>}
+            {sublabel && <span className="text-[9px] text-zinc-500">{sublabel}</span>}
+          </div>
+        </div>
+      );
+    };
+
+    function App() {
+      const [appState, setAppState] = useState(null);
+      const [isHydrated, setIsHydrated] = useState(false);
+      const [saveStatus, setSaveStatus] = useState('Synced');
+      const [activeTab, setActiveTab] = useState('home');
+      const [moreSubTab, setMoreSubTab] = useState('menu');
+      const [selectedSubjectId, setSelectedSubjectId] = useState('maths');
+      const [expandedChapterId, setExpandedChapterId] = useState(null);
+      const [searchQuery, setSearchQuery] = useState('');
+      const [statusFilter, setStatusFilter] = useState('all');
+
+      const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+      const [newTaskForm, setNewTaskForm] = useState({ subjectId: 'maths', chapterTitle: '', title: '', date: '2026-12-01', estimatedMins: 45, priority: 'H' });
+      const [editingTask, setEditingTask] = useState(null);
+      const [testForm, setTestForm] = useState({ subjectId: 'physics', chapter: '', date: '2026-12-06', maxMarks: 20, obtained: '', durationMins: 45, errorType: 'Concept Gap', mistakes: '', nextAction: '' });
+
+      const [timerSubjectId, setTimerSubjectId] = useState('maths');
+      const [timerChapterTitle, setTimerChapterTitle] = useState('Relations and Functions');
+      const [timerTaskId, setTimerTaskId] = useState('');
+      const [timerMode, setTimerMode] = useState('focus');
+      const [isRunning, setIsRunning] = useState(false);
+      const [elapsedSeconds, setElapsedSeconds] = useState(0);
+      const startTimestampRef = useRef(null);
+      const accumulatedSecondsRef = useRef(0);
+
+      const [resetConfirmType, setResetConfirmType] = useState(null);
+      const [fullResetInput, setFullResetInput] = useState('');
+      const [importPreview, setImportPreview] = useState(null);
+      const [toastMsg, setToastMsg] = useState(null);
+
+      const showToast = (msg) => {
+        setToastMsg(msg);
+        setTimeout(() => setToastMsg(null), 3200);
+      };
+
+      useEffect(() => {
+        let mounted = true;
+        loadAppState().then((saved) => {
+          if (!mounted) return;
+          if (saved && saved.chapters && saved.tasks) setAppState(saved);
+          else {
+            const initial = buildInitialState();
+            setAppState(initial);
+            saveAppState(initial);
+          }
+          setIsHydrated(true);
+        });
+        return () => { mounted = false; };
+      }, []);
+
+      useEffect(() => {
+        if (!isHydrated || !appState) return;
+        setSaveStatus('Saving...');
+        const timer = setTimeout(async () => {
+          const ok = await saveAppState({ ...appState, lastUpdated: new Date().toISOString() });
+          setSaveStatus(ok ? `Saved • ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Local Cache');
+        }, 350);
+        return () => clearTimeout(timer);
+      }, [appState, isHydrated]);
+
+      useEffect(() => {
+        if (!isRunning) return;
+        startTimestampRef.current = Date.now();
+        const interval = setInterval(() => {
+          const delta = Math.floor((Date.now() - startTimestampRef.current) / 1000);
+          setElapsedSeconds(accumulatedSecondsRef.current + delta);
+        }, 500);
+        return () => {
+          clearInterval(interval);
+          if (startTimestampRef.current) {
+            accumulatedSecondsRef.current += Math.floor((Date.now() - startTimestampRef.current) / 1000);
+            startTimestampRef.current = null;
+          }
+        };
+      }, [isRunning]);
+
+      const handleTimerStart = () => setIsRunning(true);
+      const handleTimerPause = () => setIsRunning(false);
+      const handleTimerReset = () => {
+        setIsRunning(false);
+        accumulatedSecondsRef.current = 0;
+        startTimestampRef.current = null;
+        setElapsedSeconds(0);
+      };
+      const handleTimerSaveSession = () => {
+        setIsRunning(false);
+        const totalSecs = elapsedSeconds;
+        if (totalSecs < 10) { showToast('Focus at least 10 seconds to log a session.'); return; }
+        if (timerMode === 'break') { showToast('Break time is not counted.'); handleTimerReset(); return; }
+        const minsLogged = Math.max(1, Math.round(totalSecs / 60));
+        const newSession = {
+          id: `sess-${Date.now()}`, date: appState.activeDate, subjectId: timerSubjectId,
+          chapterTitle: timerChapterTitle, taskId: timerTaskId || null, durationMins: minsLogged,
+          timestamp: new Date().toISOString()
+        };
+        setAppState((prev) => ({
+          ...prev,
+          studySessions: [newSession, ...prev.studySessions],
+          tasks: prev.tasks.map((t) => t.id === timerTaskId ? { ...t, actualMins: (t.actualMins || 0) + minsLogged } : t)
+        }));
+        handleTimerReset();
+        showToast(`Logged ${minsLogged}m focused study session!`);
+      };
+
+      const metrics = useMemo(() => {
+        if (!appState) return null;
+        const allChapters = Object.values(appState.chapters);
+        const totalStagesPossible = allChapters.length * 6;
+        let completedStagesCount = 0;
+        let completedChaptersCount = 0;
+
+        const subjectStats = {};
+        SUBJECTS_META.forEach((s) => {
+          subjectStats[s.id] = {
+            ...s, totalChapters: s.chapters.length, completedChapters: 0,
+            totalStages: s.chapters.length * 6, completedStages: 0, percent: 0,
+            plannedMins: 0, actualMins: 0, pendingTasks: 0, completedTasks: 0
+          };
+        });
+
+        allChapters.forEach((ch) => {
+          const doneCount = STAGE_KEYS.filter((st) => ch.stages[st.key]).length;
+          completedStagesCount += doneCount;
+          if (subjectStats[ch.subjectId]) {
+            subjectStats[ch.subjectId].completedStages += doneCount;
+            if (doneCount === 6) {
+              completedChaptersCount += 1;
+              subjectStats[ch.subjectId].completedChapters += 1;
+            }
+          }
+        });
+
+        Object.values(subjectStats).forEach((st) => {
+          st.percent = st.totalStages > 0 ? Math.round((st.completedStages / st.totalStages) * 100) : 0;
+        });
+
+        appState.tasks.forEach((t) => {
+          if (subjectStats[t.subjectId]) {
+            subjectStats[t.subjectId].plannedMins += t.estimatedMins || 0;
+            if (t.status === 'completed') subjectStats[t.subjectId].completedTasks += 1;
+            else subjectStats[t.subjectId].pendingTasks += 1;
+          }
+        });
+
+        appState.studySessions.forEach((s) => {
+          if (subjectStats[s.subjectId]) subjectStats[s.subjectId].actualMins += s.durationMins || 0;
+        });
+
+        const overallPercent = totalStagesPossible > 0 ? Math.round((completedStagesCount / totalStagesPossible) * 100) : 0;
+        const todayTasks = appState.tasks.filter((t) => t.date === appState.activeDate);
+        const todayCompleted = todayTasks.filter((t) => t.status === 'completed').length;
+        const todayPending = todayTasks.filter((t) => t.status !== 'completed').length;
+        const todayTargetMins = todayTasks.reduce((acc, t) => acc + (t.estimatedMins || 0), 0);
+        const todayFocusedMins = appState.studySessions.filter((s) => s.date === appState.activeDate).reduce((acc, s) => acc + (s.durationMins || 0), 0);
+        const totalFocusedMins = appState.studySessions.reduce((acc, s) => acc + (s.durationMins || 0), 0);
+        const overdueTasks = appState.tasks.filter((t) => t.date < appState.activeDate && t.status !== 'completed');
+
+        return {
+          overallPercent, totalChapters: allChapters.length, completedChaptersCount,
+          remainingChaptersCount: allChapters.length - completedChaptersCount, subjectStats,
+          todayTasks, todayCompleted, todayPending, todayTargetMins, todayFocusedMins,
+          totalFocusedMins, overdueTasks
+        };
+      }, [appState]);
+
+      if (!isHydrated || !appState || !metrics) {
+        return (
+          <div className="min-h-screen bg-[#090A0D] text-white flex flex-col items-center justify-center p-6">
+            <div className="w-10 h-10 border-2 border-[#4F8EF7] border-t-transparent rounded-full animate-spin mb-4" />
+            <p className="text-sm font-medium text-zinc-400">Initializing Board Mission 2027...</p>
+          </div>
+        );
+      }
+
+      const isDark = appState.theme === 'dark';
+      const bgMain = isDark ? 'bg-[#090A0D] text-[#F4F5F7]' : 'bg-[#F5F6F8] text-slate-900';
+      const cardBg = isDark ? 'bg-[#12141A]/90 border-white/[0.07] shadow-[0_8px_30px_rgba(0,0,0,0.45)]' : 'bg-white border-slate-200/80 shadow-[0_4px_20px_rgba(15,23,42,0.04)]';
+      const subText = isDark ? 'text-[#8E939E]' : 'text-slate-500';
+      const inputBg = isDark ? 'bg-[#191C24] border-white/10 text-white placeholder-zinc-500 focus:border-[#4F8EF7]' : 'bg-slate-100 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-[#4F8EF7]';
+
+      const toggleTaskComplete = (taskId) => {
+        setAppState((prev) => ({
+          ...prev,
+          tasks: prev.tasks.map((t) => t.id === taskId ? { ...t, status: t.status === 'completed' ? 'pending' : 'completed', completedDate: t.status === 'completed' ? null : prev.activeDate } : t)
+        }));
+      };
+
+      const cycleTaskStatus = (taskId) => {
+        const order = ['pending', 'in_progress', 'completed'];
+        setAppState((prev) => ({
+          ...prev,
+          tasks: prev.tasks.map((t) => {
+            if (t.id !== taskId) return t;
+            const next = order[(order.indexOf(t.status) + 1) % order.length];
+            return { ...t, status: next, completedDate: next === 'completed' ? prev.activeDate : null };
+          })
+        }));
+      };
+
+      const postponeTaskOneDay = (taskId) => {
+        setAppState((prev) => ({
+          ...prev,
+          tasks: prev.tasks.map((t) => {
+            if (t.id !== taskId) return t;
+            const d = new Date(t.date + 'T00:00:00');
+            d.setDate(d.getDate() + 1);
+            return { ...t, date: d.toISOString().split('T')[0] };
+          })
+        }));
+        showToast('Task rescheduled +1 day.');
+      };
+
+      const rescheduleTaskToDate = (taskId, newDate) => {
+        setAppState((prev) => ({
+          ...prev,
+          tasks: prev.tasks.map((t) => (t.id === taskId ? { ...t, date: newDate } : t))
+        }));
+        showToast(`Task moved to ${newDate}`);
+      };
+
+      const deleteTask = (taskId) => {
+        setAppState((prev) => ({ ...prev, tasks: prev.tasks.filter((t) => t.id !== taskId) }));
+        showToast('Task deleted.');
+      };
+
+      const handleAddCustomTask = (e) => {
+        e.preventDefault();
+        if (!newTaskForm.title.trim()) return;
+        const created = {
+          id: `custom-${Date.now()}`, date: newTaskForm.date || appState.activeDate,
+          phase: 'Custom Study Task', subjectId: newTaskForm.subjectId,
+          chapterTitle: newTaskForm.chapterTitle || 'General Practice', title: newTaskForm.title.trim(),
+          output: 'Self-assigned milestone', estimatedMins: Number(newTaskForm.estimatedMins) || 45,
+          actualMins: 0, status: 'pending', completedDate: null, notes: '', isCustom: true, priority: newTaskForm.priority
+        };
+        setAppState((prev) => ({ ...prev, tasks: [created, ...prev.tasks] }));
+        setNewTaskForm({ subjectId: 'maths', chapterTitle: '', title: '', date: appState.activeDate, estimatedMins: 45, priority: 'H' });
+        setShowAddTaskModal(false);
+        showToast('Custom task saved.');
+      };
+
+      const handleSaveTaskEdit = (e) => {
+        e.preventDefault();
+        if (!editingTask) return;
+        setAppState((prev) => ({ ...prev, tasks: prev.tasks.map((t) => (t.id === editingTask.id ? editingTask : t)) }));
+        setEditingTask(null);
+        showToast('Task updated.');
+      };
+
+      const toggleChapterStage = (chapterId, stageKey) => {
+        setAppState((prev) => {
+          const ch = prev.chapters[chapterId];
+          if (!ch) return prev;
+          const updatedStages = { ...ch.stages, [stageKey]: !ch.stages[stageKey] };
+          return {
+            ...prev,
+            chapters: {
+              ...prev.chapters,
+              [chapterId]: { ...ch, stages: updatedStages, lastRevised: (stageKey === 'rev1' || stageKey === 'rev2') && updatedStages[stageKey] ? prev.activeDate : ch.lastRevised }
+            }
+          };
+        });
+      };
+
+      const updateChapterField = (chapterId, field, value) => {
+        setAppState((prev) => ({
+          ...prev,
+          chapters: { ...prev.chapters, [chapterId]: { ...prev.chapters[chapterId], [field]: value } }
+        }));
+      };
+
+      const handleAddTestRecord = (e) => {
+        e.preventDefault();
+        if (!testForm.chapter.trim() || testForm.obtained === '') return;
+        const rec = {
+          id: `test-${Date.now()}`, subjectId: testForm.subjectId, chapter: testForm.chapter.trim(),
+          date: testForm.date, maxMarks: Number(testForm.maxMarks) || 20, obtained: Number(testForm.obtained) || 0,
+          durationMins: Number(testForm.durationMins) || 45, errorType: testForm.errorType,
+          mistakes: testForm.mistakes.trim(), nextAction: testForm.nextAction.trim()
+        };
+        setAppState((prev) => ({ ...prev, tests: [rec, ...prev.tests] }));
+        setTestForm({ subjectId: 'physics', chapter: '', date: appState.activeDate, maxMarks: 20, obtained: '', durationMins: 45, errorType: 'Concept Gap', mistakes: '', nextAction: '' });
+        showToast('Test score saved.');
+      };
+
+      const handleExportJSON = () => {
+        const exportObj = { ...appState, lastBackupDate: new Date().toISOString() };
+        setAppState(exportObj);
+        const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `BOARD_MISSION_2027_Backup_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('JSON Backup exported!');
+      };
+
+      const handleImportFileSelect = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const parsed = JSON.parse(ev.target.result);
+            if (!parsed || typeof parsed !== 'object' || !parsed.chapters || !Array.isArray(parsed.tasks)) {
+              showToast('Invalid backup file.');
+              return;
+            }
+            setImportPreview({
+              fileName: file.name, data: parsed, taskCount: parsed.tasks.length,
+              chapterCount: Object.keys(parsed.chapters).length,
+              testCount: Array.isArray(parsed.tests) ? parsed.tests.length : 0,
+              sessionCount: Array.isArray(parsed.studySessions) ? parsed.studySessions.length : 0
+            });
+          } catch { showToast('Failed to parse JSON.'); }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+      };
+
+      const confirmRestoreBackup = () => {
+        if (!importPreview) return;
+        setAppState(importPreview.data);
+        saveAppState(importPreview.data);
+        setImportPreview(null);
+        showToast('Backup restored!');
+      };
+
+      const executeReset = (tier) => {
+        const pristine = buildInitialState();
+        if (tier === 'progress') {
+          setAppState((prev) => {
+            const resetChapters = {};
+            Object.values(prev.chapters).forEach((ch) => {
+              resetChapters[ch.id] = { ...ch, stages: { theory: false, ncert: false, practice: false, rev1: false, rev2: false, test: false }, lastRevised: null };
+            });
+            return { ...prev, chapters: resetChapters, tasks: prev.tasks.map((t) => ({ ...t, status: 'pending', completedDate: null, actualMins: 0 })), studySessions: [] };
+          });
+          showToast('Progress reset. Plan preserved.');
+        } else if (tier === 'personal') {
+          setAppState((prev) => {
+            const cleanedChapters = {};
+            Object.values(prev.chapters).forEach((ch) => { cleanedChapters[ch.id] = { ...ch, notes: '', weakTopics: '' }; });
+            return { ...prev, chapters: cleanedChapters, tasks: prev.tasks.filter((t) => !t.isCustom).map((t) => ({ ...t, notes: '' })), studySessions: [], tests: [] };
+          });
+          showToast('Personal data cleared.');
+        } else if (tier === 'full') {
+          if (fullResetInput.trim().toUpperCase() !== 'RESET') { showToast('Type RESET to confirm.'); return; }
+          setAppState(pristine);
+          saveAppState(pristine);
+          setFullResetInput('');
+          showToast('Restored to original PDF roadmap.');
+        }
+        setResetConfirmType(null);
+      };
+
+      const formatMins = (m) => { const h = Math.floor(m / 60); const rem = m % 60; return h > 0 ? `${h}h ${rem}m` : `${rem}m`; };
+      const formatClock = (secs) => {
+        const h = Math.floor(secs / 3600); const m = Math.floor((secs % 3600) / 60); const s = secs % 60;
+        const pad = (n) => String(n).padStart(2, '0');
+        return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+      };
+
+      const searchResults = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q && statusFilter === 'all') return null;
+        return appState.tasks.filter((t) => {
+          const matchesQuery = !q || t.title.toLowerCase().includes(q) || t.chapterTitle.toLowerCase().includes(q) || t.subjectId.toLowerCase().includes(q) || (t.notes && t.notes.toLowerCase().includes(q));
+          const matchesStatus = statusFilter === 'all' || (statusFilter === 'overdue' ? t.date < appState.activeDate && t.status !== 'completed' : statusFilter === 'due_today' ? t.date === appState.activeDate : t.status === statusFilter);
+          return matchesQuery && matchesStatus;
+        });
+      }, [appState.tasks, appState.activeDate, searchQuery, statusFilter]);
+
+      return (
+        <div className={`min-h-screen pb-28 transition-colors duration-300 ${bgMain}`}>
+          {toastMsg && (
+            <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full bg-[#1C212D] border border-[#4F8EF7]/40 text-white text-xs font-medium shadow-2xl flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#4F8EF7] animate-pulse" />
+              {toastMsg}
+            </div>
+          )}
+
+          <header className={`sticky top-0 z-40 backdrop-blur-xl border-b px-4 py-3 ${isDark ? 'bg-[#090A0D]/80 border-white/[0.06]' : 'bg-white/80 border-slate-200/80'}`}>
+            <div className="max-w-3xl mx-auto flex items-center justify-between gap-2">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#4F8EF7]" />
+                  <h1 className="text-sm font-bold tracking-tight">BOARD MISSION 2027</h1>
+                </div>
+                <p className={`text-[11px] ${subText}`}>Plan. Study. Track. Improve.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] border ${isDark ? 'bg-white/[0.03] border-white/[0.08] text-zinc-400' : 'bg-slate-100 border-slate-200 text-slate-600'}`}>
+                  <Icon name="database" size={12} className="text-[#4F8EF7]" />
+                  <span>{saveStatus}</span>
+                </div>
+                <button onClick={() => setAppState((p) => ({ ...p, theme: p.theme === 'dark' ? 'light' : 'dark' }))} className={`p-2 rounded-xl border transition ${isDark ? 'bg-white/[0.04] border-white/10 text-zinc-300' : 'bg-slate-100 border-slate-200 text-slate-700'}`}>
+                  <Icon name={isDark ? 'sun' : 'moon'} size={16} />
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <main className="max-w-3xl mx-auto px-4 pt-4 space-y-5">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1">
+                <span className={`absolute left-3 top-1/2 -translate-y-1/2 ${subText}`}><Icon name="search" size={15} /></span>
+                <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search subjects, chapters, topics, or notes..." className={`w-full pl-9 pr-8 py-2 rounded-xl text-xs border outline-none transition ${inputBg}`} />
+                {searchQuery && <button onClick={() => setSearchQuery('')} className={`absolute right-2.5 top-1/2 -translate-y-1/2 ${subText}`}><Icon name="x" size={14} /></button>}
+              </div>
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={`px-3 py-2 rounded-xl text-xs border outline-none ${inputBg}`}>
+                <option value="all">Filter: All Tasks</option>
+                <option value="due_today">Due Today ({appState.activeDate})</option>
+                <option value="pending">Pending</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="overdue">Overdue ({metrics.overdueTasks.length})</option>
+              </select>
+            </div>
+
+            {searchResults && (
+              <div className={`rounded-2xl border p-4 space-y-3 ${cardBg}`}>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-[#4F8EF7]">Filtered Tasks ({searchResults.length})</h3>
+                  <button onClick={() => { setSearchQuery(''); setStatusFilter('all'); }} className={`text-xs ${subText}`}>Clear</button>
+                </div>
+                {searchResults.length === 0 ? <p className={`text-xs ${subText}`}>No matching tasks found.</p> : (
+                  <div className="space-y-2 max-h-72 overflow-y-auto">
+                    {searchResults.map((t) => {
+                      const sub = SUBJECTS_META.find((s) => s.id === t.subjectId);
+                      return (
+                        <div key={t.id} className={`p-3 rounded-xl border flex items-start justify-between gap-3 ${isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-200'}`}>
+                          <div className="flex items-start gap-2.5">
+                            <input type="checkbox" checked={t.status === 'completed'} onChange={() => toggleTaskComplete(t.id)} className="mt-0.5 accent-[#4F8EF7]" />
+                            <div>
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-[#4F8EF7]/15 text-[#4F8EF7]">{sub?.short} • {t.date}</span>
+                              <p className={`text-xs font-medium mt-1 ${t.status === 'completed' ? 'line-through opacity-50' : ''}`}>{t.chapterTitle}: {t.title}</p>
+                            </div>
+                          </div>
+                          <span className={`text-[11px] shrink-0 ${subText}`}>{t.estimatedMins}m</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'home' && (
+              <div className="space-y-5">
+                <div className={`rounded-2xl border p-4 flex flex-wrap items-center justify-between gap-3 ${cardBg}`}>
+                  <div>
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-[#4F8EF7]">Active Roadmap Date</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <input type="date" value={appState.activeDate} onChange={(e) => setAppState((p) => ({ ...p, activeDate: e.target.value }))} className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border outline-none ${inputBg}`} />
+                      <span className={`text-xs ${subText}`}>Target: 7h Focused / Day</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => { setNewTaskForm((f) => ({ ...f, date: appState.activeDate })); setShowAddTaskModal(true); }} className="px-3 py-2 rounded-xl bg-[#4F8EF7] text-white text-xs font-semibold flex items-center gap-1.5"><Icon name="plus" size={14} /> Add Task</button>
+                    <button onClick={() => { setActiveTab('more'); setMoreSubTab('timer'); }} className={`px-3 py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 ${isDark ? 'bg-white/[0.04] border-white/10' : 'bg-slate-100 border-slate-200'}`}><Icon name="timer" size={14} className="text-[#4F8EF7]" /> Focus</button>
+                  </div>
+                </div>
+
+                <div className={`rounded-3xl border p-5 ${cardBg}`}>
+                  <div className="flex flex-col sm:flex-row items-center gap-6">
+                    <ProgressRing percent={metrics.overallPercent} size={126} stroke={9} color="#4F8EF7" label="Syllabus" sublabel={`${metrics.completedChaptersCount}/${metrics.totalChapters} Ch`} isDark={isDark} />
+                    <div className="flex-1 w-full grid grid-cols-2 gap-3">
+                      <div className={`p-3 rounded-2xl border ${isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-200/70'}`}>
+                        <p className={`text-[11px] ${subText}`}>Today's Focus</p>
+                        <p className="text-base font-bold mt-0.5">{formatMins(metrics.todayFocusedMins)} <span className={`text-xs font-normal ${subText}`}>/ {formatMins(metrics.todayTargetMins || 420)}</span></p>
+                      </div>
+                      <div className={`p-3 rounded-2xl border ${isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-200/70'}`}>
+                        <p className={`text-[11px] ${subText}`}>Today's Tasks</p>
+                        <p className="text-base font-bold mt-0.5">{metrics.todayCompleted} <span className={`text-xs font-normal ${subText}`}>done • {metrics.todayPending} left</span></p>
+                      </div>
+                      <div className={`p-3 rounded-2xl border ${isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-200/70'}`}>
+                        <p className={`text-[11px] ${subText}`}>Chapters Mastery</p>
+                        <p className="text-base font-bold mt-0.5">{metrics.completedChaptersCount} <span className={`text-xs font-normal ${subText}`}>done • {metrics.remainingChaptersCount} rem</span></p>
+                      </div>
+                      <div onClick={() => { setActiveTab('more'); setMoreSubTab('backlog'); }} className={`p-3 rounded-2xl border cursor-pointer ${metrics.overdueTasks.length > 0 ? 'border-amber-500/30 bg-amber-500/5' : isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-200/70'}`}>
+                        <p className={`text-[11px] ${subText}`}>Overdue Backlog</p>
+                        <p className={`text-base font-bold mt-0.5 ${metrics.overdueTasks.length > 0 ? 'text-amber-400' : ''}`}>{metrics.overdueTasks.length} <span className={`text-xs font-normal ${subText}`}>tasks</span></p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2.5 px-1">
+                    <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">All 6 CBSE Subjects</h2>
+                    <button onClick={() => setActiveTab('subjects')} className="text-xs text-[#4F8EF7] font-medium">Open All →</button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {SUBJECTS_META.map((sub) => {
+                      const st = metrics.subjectStats[sub.id];
+                      return (
+                        <div key={sub.id} onClick={() => { setSelectedSubjectId(sub.id); setActiveTab('subjects'); }} className={`rounded-2xl border p-4 cursor-pointer transition hover:border-[#4F8EF7]/50 ${cardBg}`}>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold">{sub.name}</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${isDark ? 'bg-white/[0.06] text-zinc-400' : 'bg-slate-100 text-slate-600'}`}>{sub.code}</span>
+                              </div>
+                              <p className={`text-[11px] mt-0.5 ${subText}`}>{st.completedChapters}/{st.totalChapters} Chapters • Exam {sub.examDate}</p>
+                            </div>
+                            <span className="text-sm font-bold text-[#4F8EF7]">{st.percent}%</span>
+                          </div>
+                          <div className={`w-full h-1.5 rounded-full mt-3 overflow-hidden ${isDark ? 'bg-white/[0.07]' : 'bg-slate-200'}`}>
+                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${st.percent}%`, backgroundColor: sub.accent }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className={`rounded-2xl border p-4 space-y-3 ${cardBg}`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-sm font-bold">Today's Study Plan ({appState.activeDate})</h2>
+                      <p className={`text-[11px] ${subText}`}>Tick outputs only after completing without answer key</p>
+                    </div>
+                    <button onClick={() => setActiveTab('planner')} className="text-xs text-[#4F8EF7] font-medium">Full Planner →</button>
+                  </div>
+                  {metrics.todayTasks.length === 0 ? (
+                    <div className={`p-4 rounded-xl text-center text-xs ${isDark ? 'bg-white/[0.02] text-zinc-400' : 'bg-slate-50 text-slate-500'}`}>
+                      No tasks scheduled for {appState.activeDate}. Switch date to <b>2026-12-01</b> or add a custom task.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {metrics.todayTasks.map((t) => {
+                        const sub = SUBJECTS_META.find((s) => s.id === t.subjectId);
+                        return (
+                          <div key={t.id} className={`p-3 rounded-xl border flex items-center justify-between gap-3 ${isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-200/80'}`}>
+                            <div className="flex items-start gap-3">
+                              <input type="checkbox" checked={t.status === 'completed'} onChange={() => toggleTaskComplete(t.id)} className="mt-1 w-4 h-4 accent-[#4F8EF7] cursor-pointer" />
+                              <div>
+                                <span className="text-[10px] font-bold uppercase text-[#4F8EF7]">{sub?.short} ({sub?.code}) • {t.estimatedMins}m</span>
+                                <p className={`text-xs font-semibold mt-0.5 ${t.status === 'completed' ? 'line-through opacity-50' : ''}`}>{t.chapterTitle}</p>
+                                <p className={`text-[11px] ${subText}`}>{t.title}</p>
+                              </div>
+                            </div>
+                            <button onClick={() => { setTimerSubjectId(t.subjectId); setTimerChapterTitle(t.chapterTitle); setTimerTaskId(t.id); setActiveTab('more'); setMoreSubTab('timer'); }} className="px-2.5 py-1.5 rounded-lg bg-[#4F8EF7]/15 text-[#4F8EF7] text-[11px] font-semibold shrink-0">Study</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className={`rounded-2xl border p-4 space-y-3 ${cardBg}`}>
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Official CBSE Class XII 2027 Date Sheet</h2>
+                    <span className="text-[10px] text-[#4F8EF7] font-medium">06 Nov 2026</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {[...SUBJECTS_META].sort((a, b) => a.examDate.localeCompare(b.examDate)).map((s) => (
+                      <div key={s.id} className={`p-2.5 rounded-xl border ${isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-200'}`}>
+                        <p className="text-[11px] font-bold">{s.short} ({s.code})</p>
+                        <p className="text-xs font-semibold text-[#4F8EF7] mt-0.5">{s.examDate}</p>
+                        <p className={`text-[10px] ${subText}`}>{s.examTime}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'subjects' && (
+              <div className="space-y-4">
+                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                  {SUBJECTS_META.map((sub) => {
+                    const active = selectedSubjectId === sub.id;
+                    const st = metrics.subjectStats[sub.id];
+                    return (
+                      <button key={sub.id} onClick={() => { setSelectedSubjectId(sub.id); setExpandedChapterId(null); }} className={`px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 border transition flex items-center gap-2 ${active ? 'bg-[#4F8EF7] border-[#4F8EF7] text-white' : isDark ? 'bg-[#12141A] border-white/[0.08] text-zinc-300' : 'bg-white border-slate-200 text-slate-700'}`}>
+                        <span>{sub.short}</span>
+                        <span className={`text-[10px] px-1.5 rounded-full ${active ? 'bg-white/20 text-white' : 'bg-[#4F8EF7]/15 text-[#4F8EF7]'}`}>{st.percent}%</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {(() => {
+                  const sub = SUBJECTS_META.find((s) => s.id === selectedSubjectId);
+                  const st = metrics.subjectStats[sub.id];
+                  const subChapters = Object.values(appState.chapters).filter((c) => c.subjectId === sub.id);
+                  return (
+                    <div className="space-y-4">
+                      <div className={`rounded-3xl border p-5 ${cardBg}`}>
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h2 className="text-lg font-bold">{sub.name}</h2>
+                              <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-[#4F8EF7]/15 text-[#4F8EF7]">Code {sub.code}</span>
+                            </div>
+                            <p className={`text-xs mt-1 ${subText}`}>{sub.priority}</p>
+                            <div className="flex flex-wrap gap-3 mt-3 text-xs">
+                              <span className={subText}>Completed: <b className={isDark ? 'text-white' : 'text-slate-900'}>{st.completedChapters}/{st.totalChapters} Ch</b></span>
+                              <span className={subText}>Actual Focus: <b className="text-[#4F8EF7]">{formatMins(st.actualMins)}</b></span>
+                            </div>
+                          </div>
+                          <ProgressRing percent={st.percent} size={76} stroke={7} color={sub.accent} isDark={isDark} />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2.5">
+                        {subChapters.map((ch) => {
+                          const doneStages = STAGE_KEYS.filter((k) => ch.stages[k.key]).length;
+                          const chPercent = Math.round((doneStages / 6) * 100);
+                          const isExpanded = expandedChapterId === ch.id;
+                          const incompleteStages = STAGE_KEYS.filter((k) => !ch.stages[k.key]);
+
+                          return (
+                            <div key={ch.id} className={`rounded-2xl border transition ${cardBg}`}>
+                              <div onClick={() => setExpandedChapterId(isExpanded ? null : ch.id)} className="p-4 cursor-pointer flex items-center justify-between gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-mono text-[#4F8EF7]">#{ch.index}</span>
+                                    <h4 className="text-xs sm:text-sm font-bold truncate">{ch.title}</h4>
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/[0.07]' : 'bg-slate-200'}`}>
+                                      <div className="h-full rounded-full bg-[#4F8EF7]" style={{ width: `${chPercent}%` }} />
+                                    </div>
+                                    <span className={`text-[11px] font-semibold ${subText}`}>{doneStages}/6</span>
+                                  </div>
+                                </div>
+                                <Icon name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} className={subText} />
+                              </div>
+
+                              {isExpanded && (
+                                <div className={`px-4 pb-4 pt-2 border-t space-y-4 ${isDark ? 'border-white/[0.06]' : 'border-slate-200/80'}`}>
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                    {STAGE_KEYS.map((stObj) => {
+                                      const checked = ch.stages[stObj.key];
+                                      return (
+                                        <button key={stObj.key} onClick={() => toggleChapterStage(ch.id, stObj.key)} className={`px-3 py-2 rounded-xl border text-xs font-medium flex items-center gap-2 ${checked ? 'bg-[#4F8EF7]/15 border-[#4F8EF7] text-[#4F8EF7]' : isDark ? 'bg-white/[0.02] border-white/[0.08] text-zinc-400' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
+                                          <Icon name={checked ? 'check-square' : 'square'} size={14} />
+                                          <span>{stObj.label}</span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  <div className={`p-3 rounded-xl border ${isDark ? 'bg-amber-500/[0.04] border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}>
+                                    <p className="text-[11px] font-bold uppercase tracking-wider text-amber-400">What is left in this chapter?</p>
+                                    {incompleteStages.length === 0 ? <p className="text-xs text-emerald-400 mt-1">All 6 stages completed!</p> : (
+                                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                        {incompleteStages.map((rem) => <span key={rem.key} className="text-[11px] px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300">• {rem.label}</span>)}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <input type="text" value={ch.weakTopics} onChange={(e) => updateChapterField(ch.id, 'weakTopics', e.target.value)} placeholder="Weak subtopics / error log..." className={`w-full px-3 py-2 rounded-xl text-xs border outline-none ${inputBg}`} />
+                                    <input type="text" value={ch.notes} onChange={(e) => updateChapterField(ch.id, 'notes', e.target.value)} placeholder="Personal revision notes..." className={`w-full px-3 py-2 rounded-xl text-xs border outline-none ${inputBg}`} />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {activeTab === 'planner' && (
+              <div className="space-y-4">
+                <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                  {[
+                    { label: 'Phase 1: First Pass (Dec 1)', date: '2026-12-01' },
+                    { label: 'Phase 2: 1st Rev (Jan 15)', date: '2027-01-15' },
+                    { label: 'Phase 3: 2nd Rev (Jan 25)', date: '2027-01-25' },
+                    { label: 'Phase 4: Feb Bridge (Feb 1)', date: '2027-02-01' }
+                  ].map((p) => (
+                    <button key={p.date} onClick={() => setAppState((prev) => ({ ...prev, activeDate: p.date }))} className={`px-3 py-1.5 rounded-xl text-xs font-medium shrink-0 border ${appState.activeDate === p.date ? 'bg-[#4F8EF7] border-[#4F8EF7] text-white' : isDark ? 'bg-[#12141A] border-white/[0.08] text-zinc-300' : 'bg-white border-slate-200 text-slate-700'}`}>{p.label}</button>
+                  ))}
+                </div>
+
+                <div className={`rounded-2xl border p-4 flex items-center justify-between gap-2 ${cardBg}`}>
+                  <button onClick={() => { const d = new Date(appState.activeDate + 'T00:00:00'); d.setDate(d.getDate() - 1); setAppState((p) => ({ ...p, activeDate: d.toISOString().split('T')[0] })); }} className={`p-2 rounded-xl border ${isDark ? 'border-white/10' : 'border-slate-200'}`}><Icon name="chevron-left" size={16} /></button>
+                  <div className="text-center">
+                    <input type="date" value={appState.activeDate} onChange={(e) => setAppState((p) => ({ ...p, activeDate: e.target.value }))} className={`text-xs font-bold px-3 py-1.5 rounded-xl border outline-none ${inputBg}`} />
+                    <p className={`text-[11px] mt-1 ${subText}`}>{metrics.todayTasks.length} Tasks • {formatMins(metrics.todayTargetMins)} Planned</p>
+                  </div>
+                  <button onClick={() => { const d = new Date(appState.activeDate + 'T00:00:00'); d.setDate(d.getDate() + 1); setAppState((p) => ({ ...p, activeDate: d.toISOString().split('T')[0] })); }} className={`p-2 rounded-xl border ${isDark ? 'border-white/10' : 'border-slate-200'}`}><Icon name="chevron-right" size={16} /></button>
+                </div>
+
+                <div className="space-y-2.5">
+                  {metrics.todayTasks.map((t) => {
+                    const sub = SUBJECTS_META.find((s) => s.id === t.subjectId);
+                    return (
+                      <div key={t.id} className={`rounded-2xl border p-4 space-y-3 ${cardBg}`}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3">
+                            <input type="checkbox" checked={t.status === 'completed'} onChange={() => toggleTaskComplete(t.id)} className="mt-1 w-4 h-4 accent-[#4F8EF7]" />
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#4F8EF7]/15 text-[#4F8EF7]">{sub?.name} ({sub?.code})</span>
+                                <button onClick={() => cycleTaskStatus(t.id)} className="text-[10px] font-semibold px-2 py-0.5 rounded-full border border-zinc-500/30 text-zinc-400">{t.status.toUpperCase()}</button>
+                              </div>
+                              <h4 className={`text-sm font-bold mt-1 ${t.status === 'completed' ? 'line-through opacity-50' : ''}`}>{t.chapterTitle}</h4>
+                              <p className={`text-xs mt-0.5 ${subText}`}>{t.title}</p>
+                            </div>
+                          </div>
+                          <span className="text-xs font-bold shrink-0">{t.estimatedMins}m</span>
+                        </div>
+                        <div className={`pt-2.5 border-t flex items-center justify-between gap-2 ${isDark ? 'border-white/[0.06]' : 'border-slate-200'}`}>
+                          <div className="flex gap-1.5">
+                            <button onClick={() => { setTimerSubjectId(t.subjectId); setTimerChapterTitle(t.chapterTitle); setTimerTaskId(t.id); setActiveTab('more'); setMoreSubTab('timer'); }} className="px-2.5 py-1 rounded-lg bg-[#4F8EF7] text-white text-[11px] font-semibold">Start Study</button>
+                            <button onClick={() => postponeTaskOneDay(t.id)} className={`px-2.5 py-1 rounded-lg border text-[11px] ${isDark ? 'border-white/10 text-zinc-300' : 'border-slate-200'}`}>Postpone +1d</button>
+                          </div>
+                          <div className="flex gap-1.5">
+                            <button onClick={() => setEditingTask(t)} className={`p-1.5 rounded-lg border ${isDark ? 'border-white/10 text-zinc-400' : 'border-slate-200'}`}><Icon name="edit-3" size={13} /></button>
+                            <button onClick={() => deleteTask(t.id)} className="p-1.5 rounded-lg border border-red-500/20 text-red-400"><Icon name="trash-2" size={13} /></button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className={`rounded-2xl border p-4 space-y-2 ${cardBg}`}>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Daily 7-Hour Focused Structure</h3>
+                  {DAILY_ROUTINE_BLOCKS.map((b, i) => (
+                    <div key={i} className={`px-3 py-2 rounded-xl flex items-center justify-between text-xs ${b.counted ? (isDark ? 'bg-white/[0.03]' : 'bg-slate-50') : 'opacity-50'}`}>
+                      <div className="flex items-center gap-3"><span className="font-mono text-[11px] text-[#4F8EF7]">{b.time}</span><span>{b.session}</span></div>
+                      <span className="text-[11px] font-semibold">{b.counted ? `${b.mins}m` : 'Break'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'analytics' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className={`rounded-2xl border p-4 ${cardBg}`}><p className={`text-[11px] ${subText}`}>Overall Syllabus</p><p className="text-2xl font-bold text-[#4F8EF7] mt-1">{metrics.overallPercent}%</p></div>
+                  <div className={`rounded-2xl border p-4 ${cardBg}`}><p className={`text-[11px] ${subText}`}>Focus Logged</p><p className="text-2xl font-bold mt-1">{formatMins(metrics.totalFocusedMins)}</p></div>
+                  <div className={`rounded-2xl border p-4 ${cardBg}`}><p className={`text-[11px] ${subText}`}>Backlog Items</p><p className="text-2xl font-bold text-amber-400 mt-1">{metrics.overdueTasks.length}</p></div>
+                  <div className={`rounded-2xl border p-4 ${cardBg}`}><p className={`text-[11px] ${subText}`}>Tests Logged</p><p className="text-2xl font-bold text-emerald-400 mt-1">{appState.tests.length}</p></div>
+                </div>
+                <div className={`rounded-2xl border p-5 space-y-4 ${cardBg}`}>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Subject-Wise Completion</h3>
+                  {SUBJECTS_META.map((sub) => {
+                    const st = metrics.subjectStats[sub.id];
+                    return (
+                      <div key={sub.id} className="space-y-1.5">
+                        <div className="flex justify-between text-xs"><span className="font-bold">{sub.name}</span><span className={subText}>{st.completedStages}/{st.totalStages} • <b>{st.percent}%</b></span></div>
+                        <div className={`w-full h-2 rounded-full overflow-hidden ${isDark ? 'bg-white/[0.07]' : 'bg-slate-200'}`}><div className="h-full rounded-full" style={{ width: `${st.percent}%`, backgroundColor: sub.accent }} /></div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'more' && (
+              <div className="space-y-4">
+                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                  {[
+                    { id: 'menu', label: 'All Tools' }, { id: 'timer', label: 'Timer' },
+                    { id: 'backlog', label: `Backlog (${metrics.overdueTasks.length})` }, { id: 'revision', label: 'Revision' },
+                    { id: 'tests', label: 'Tests' }, { id: 'practicals', label: 'Practicals' },
+                    { id: 'checklist', label: 'Checklist' }, { id: 'settings', label: 'Settings' }
+                  ].map((item) => (
+                    <button key={item.id} onClick={() => setMoreSubTab(item.id)} className={`px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 border ${moreSubTab === item.id ? 'bg-[#4F8EF7] border-[#4F8EF7] text-white' : isDark ? 'bg-[#12141A] border-white/[0.08] text-zinc-300' : 'bg-white border-slate-200 text-slate-700'}`}>{item.label}</button>
+                  ))}
+                </div>
+
+                {moreSubTab === 'menu' && (
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { id: 'timer', icon: 'timer', title: 'Focus Study Timer', desc: 'Log real focused minutes' },
+                      { id: 'backlog', icon: 'alert-circle', title: 'Backlog Manager', desc: '1-task 45m daily recovery' },
+                      { id: 'revision', icon: 'repeat', title: 'Revision Manager', desc: '1st & 2nd revision cycles' },
+                      { id: 'tests', icon: 'award', title: 'Tests & Marks', desc: '9 weekly tests + error logs' },
+                      { id: 'practicals', icon: 'flask-conical', title: 'Practicals & ALS', desc: 'Files, Viva & LOC verification' },
+                      { id: 'checklist', icon: 'check-circle-2', title: 'Board Checklist', desc: '13-point final readiness' },
+                      { id: 'settings', icon: 'settings', title: 'Settings & Backup', desc: 'JSON Backup & 3-Tier Reset' }
+                    ].map((card) => (
+                      <div key={card.id} onClick={() => setMoreSubTab(card.id)} className={`rounded-2xl border p-4 cursor-pointer ${cardBg}`}>
+                        <div className="w-9 h-9 rounded-xl bg-[#4F8EF7]/15 text-[#4F8EF7] flex items-center justify-center mb-3"><Icon name={card.icon} size={18} /></div>
+                        <h3 className="text-xs font-bold">{card.title}</h3>
+                        <p className={`text-[11px] mt-1 ${subText}`}>{card.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {moreSubTab === 'timer' && (
+                  <div className={`rounded-3xl border p-6 space-y-5 text-center ${cardBg}`}>
+                    <div className="inline-flex rounded-xl p-1 border border-white/10 bg-black/20">
+                      <button onClick={() => { handleTimerReset(); setTimerMode('focus'); }} className={`px-4 py-1.5 rounded-lg text-xs font-semibold ${timerMode === 'focus' ? 'bg-[#4F8EF7] text-white' : subText}`}>Focus (Counted)</button>
+                      <button onClick={() => { handleTimerReset(); setTimerMode('break'); }} className={`px-4 py-1.5 rounded-lg text-xs font-semibold ${timerMode === 'break' ? 'bg-zinc-700 text-white' : subText}`}>Break (Excluded)</button>
+                    </div>
+                    <p className="text-5xl font-extrabold font-mono text-[#4F8EF7] py-4">{formatClock(elapsedSeconds)}</p>
+                    {timerMode === 'focus' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+                        <select value={timerSubjectId} onChange={(e) => { setTimerSubjectId(e.target.value); setTimerChapterTitle(SUBJECTS_META.find((s) => s.id === e.target.value)?.chapters[0] || ''); }} className={`px-3 py-2 rounded-xl text-xs border outline-none ${inputBg}`}>
+                          {SUBJECTS_META.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                        <select value={timerChapterTitle} onChange={(e) => setTimerChapterTitle(e.target.value)} className={`px-3 py-2 rounded-xl text-xs border outline-none ${inputBg}`}>
+                          {(SUBJECTS_META.find((s) => s.id === timerSubjectId)?.chapters || []).map((c) => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                    )}
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {!isRunning ? <button onClick={handleTimerStart} className="px-6 py-2.5 rounded-xl bg-[#4F8EF7] text-white text-xs font-bold">Start</button> : <button onClick={handleTimerPause} className="px-6 py-2.5 rounded-xl bg-amber-500 text-black text-xs font-bold">Pause</button>}
+                      <button onClick={handleTimerSaveSession} className="px-5 py-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold">Stop & Save</button>
+                      <button onClick={handleTimerReset} className={`px-4 py-2.5 rounded-xl border text-xs ${isDark ? 'border-white/10' : 'border-slate-200'}`}>Reset</button>
+                    </div>
+                  </div>
+                )}
+
+                {moreSubTab === 'backlog' && (
+                  <div className="space-y-3">
+                    {metrics.overdueTasks.length === 0 ? <div className={`rounded-2xl border p-6 text-center ${cardBg}`}><p className="text-sm font-bold text-emerald-400">Zero Overdue Backlog!</p></div> : metrics.overdueTasks.map((t) => (
+                      <div key={t.id} className={`rounded-2xl border p-4 flex items-center justify-between gap-3 ${cardBg}`}>
+                        <div><span className="text-[10px] font-bold text-amber-400">Missed: {t.date}</span><p className="text-xs font-bold mt-1">{t.chapterTitle}: {t.title}</p></div>
+                        <button onClick={() => rescheduleTaskToDate(t.id, appState.activeDate)} className="px-3 py-1.5 rounded-xl bg-[#4F8EF7] text-white text-xs font-semibold shrink-0">Move to Today</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {moreSubTab === 'revision' && (
+                  <div className="space-y-2.5">
+                    {Object.values(appState.chapters).map((ch) => (
+                      <div key={ch.id} className={`rounded-2xl border p-3.5 flex items-center justify-between gap-3 ${cardBg}`}>
+                        <p className="text-xs font-bold truncate">{ch.title}</p>
+                        <div className="flex gap-2 shrink-0">
+                          <button onClick={() => toggleChapterStage(ch.id, 'rev1')} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${ch.stages.rev1 ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400' : 'border-white/10 text-zinc-400'}`}>1st Rev</button>
+                          <button onClick={() => toggleChapterStage(ch.id, 'rev2')} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${ch.stages.rev2 ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400' : 'border-white/10 text-zinc-400'}`}>2nd Rev</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {moreSubTab === 'tests' && (
+                  <div className="space-y-4">
+                    <form onSubmit={handleAddTestRecord} className={`rounded-2xl border p-4 space-y-3 ${cardBg}`}>
+                      <h3 className="text-xs font-bold uppercase text-[#4F8EF7]">Log Test Score</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        <select value={testForm.subjectId} onChange={(e) => setTestForm({ ...testForm, subjectId: e.target.value })} className={`px-3 py-2 rounded-xl text-xs border ${inputBg}`}>
+                          {SUBJECTS_META.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                        <input type="text" required placeholder="Chapter..." value={testForm.chapter} onChange={(e) => setTestForm({ ...testForm, chapter: e.target.value })} className={`px-3 py-2 rounded-xl text-xs border ${inputBg}`} />
+                        <input type="number" required placeholder="Obtained" value={testForm.obtained} onChange={(e) => setTestForm({ ...testForm, obtained: e.target.value })} className={`px-3 py-2 rounded-xl text-xs border ${inputBg}`} />
+                        <input type="number" required placeholder="Max Marks" value={testForm.maxMarks} onChange={(e) => setTestForm({ ...testForm, maxMarks: e.target.value })} className={`px-3 py-2 rounded-xl text-xs border ${inputBg}`} />
+                      </div>
+                      <button type="submit" className="w-full py-2.5 rounded-xl bg-[#4F8EF7] text-white text-xs font-bold">Save Score</button>
+                    </form>
+                    {WEEKLY_TESTS_DATA.map((wt) => (
+                      <div key={wt.id} className={`p-3 rounded-xl border ${cardBg}`}>
+                        <div className="flex justify-between text-xs font-bold"><span className="text-[#4F8EF7]">{wt.date}</span><span>{wt.marks}</span></div>
+                        <p className="text-xs mt-1">{wt.scope}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {moreSubTab === 'practicals' && (
+                  <div className="space-y-3">
+                    {appState.practicals.map((sec) => (
+                      <div key={sec.id} className={`rounded-2xl border p-4 space-y-2 ${cardBg}`}>
+                        <h3 className="text-xs font-bold text-[#4F8EF7]">{sec.title}</h3>
+                        {sec.items.map((item) => (
+                          <label key={item.id} className="flex items-start gap-2.5 text-xs cursor-pointer">
+                            <input type="checkbox" checked={item.done} onChange={() => setAppState((prev) => ({ ...prev, practicals: prev.practicals.map((s) => s.id === sec.id ? { ...s, items: s.items.map((it) => it.id === item.id ? { ...it, done: !it.done } : it) } : s) }))} className="mt-0.5 accent-[#4F8EF7]" />
+                            <span className={item.done ? 'line-through opacity-50' : ''}>{item.text}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {moreSubTab === 'checklist' && (
+                  <div className={`rounded-2xl border p-4 space-y-2.5 ${cardBg}`}>
+                    <h3 className="text-xs font-bold uppercase text-[#4F8EF7]">Final Board Checklist</h3>
+                    {appState.boardChecklist.map((item) => (
+                      <label key={item.id} className="flex items-start gap-2.5 text-xs cursor-pointer">
+                        <input type="checkbox" checked={item.done} onChange={() => setAppState((prev) => ({ ...prev, boardChecklist: prev.boardChecklist.map((bc) => bc.id === item.id ? { ...bc, done: !bc.done } : bc) }))} className="mt-0.5 accent-[#4F8EF7]" />
+                        <span className={item.done ? 'line-through opacity-50' : ''}>{item.text}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {moreSubTab === 'settings' && (
+                  <div className="space-y-4">
+                    <div className={`rounded-2xl border p-5 space-y-3 ${cardBg}`}>
+                      <h3 className="text-sm font-bold">JSON Backup & Restore</h3>
+                      <div className="flex flex-wrap gap-2">
+                        <button onClick={handleExportJSON} className="px-4 py-2.5 rounded-xl bg-[#4F8EF7] text-white text-xs font-semibold">Export JSON</button>
+                        <label className={`px-4 py-2.5 rounded-xl border text-xs font-semibold cursor-pointer ${isDark ? 'border-white/15' : 'border-slate-300'}`}>Import JSON<input type="file" accept=".json" onChange={handleImportFileSelect} className="hidden" /></label>
+                      </div>
+                    </div>
+                    <div className={`rounded-2xl border p-5 space-y-2.5 ${cardBg}`}>
+                      <h3 className="text-sm font-bold text-red-400">Reset Controls</h3>
+                      <button onClick={() => setResetConfirmType('progress')} className="w-full p-3 rounded-xl border border-amber-500/30 text-amber-400 text-xs font-semibold text-left">A. Reset Progress Only</button>
+                      <button onClick={() => setResetConfirmType('personal')} className="w-full p-3 rounded-xl border border-amber-500/30 text-amber-400 text-xs font-semibold text-left">B. Clear Personal Data</button>
+                      <button onClick={() => setResetConfirmType('full')} className="w-full p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-semibold text-left">C. Full Factory Reset</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </main>
+
+          {showAddTaskModal && (
+            <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+              <form onSubmit={handleAddCustomTask} className={`w-full max-w-md rounded-3xl border p-5 space-y-3 ${cardBg}`}>
+                <div className="flex justify-between"><h3 className="text-sm font-bold">Add Custom Task</h3><button type="button" onClick={() => setShowAddTaskModal(false)}><Icon name="x" size={18} /></button></div>
+                <select value={newTaskForm.subjectId} onChange={(e) => setNewTaskForm({ ...newTaskForm, subjectId: e.target.value })} className={`w-full px-3 py-2 rounded-xl text-xs border ${inputBg}`}>
+                  {SUBJECTS_META.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                <input type="text" placeholder="Chapter name..." value={newTaskForm.chapterTitle} onChange={(e) => setNewTaskForm({ ...newTaskForm, chapterTitle: e.target.value })} className={`w-full px-3 py-2 rounded-xl text-xs border ${inputBg}`} />
+                <input type="text" required placeholder="Task description..." value={newTaskForm.title} onChange={(e) => setNewTaskForm({ ...newTaskForm, title: e.target.value })} className={`w-full px-3 py-2 rounded-xl text-xs border ${inputBg}`} />
+                <div className="grid grid-cols-2 gap-2">
+                  <input type="date" value={newTaskForm.date} onChange={(e) => setNewTaskForm({ ...newTaskForm, date: e.target.value })} className={`px-3 py-2 rounded-xl text-xs border ${inputBg}`} />
+                  <input type="number" value={newTaskForm.estimatedMins} onChange={(e) => setNewTaskForm({ ...newTaskForm, estimatedMins: e.target.value })} className={`px-3 py-2 rounded-xl text-xs border ${inputBg}`} />
+                </div>
+                <button type="submit" className="w-full py-2.5 rounded-xl bg-[#4F8EF7] text-white text-xs font-bold">Save Task</button>
+              </form>
+            </div>
+          )}
+
+          {editingTask && (
+            <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+              <form onSubmit={handleSaveTaskEdit} className={`w-full max-w-md rounded-3xl border p-5 space-y-3 ${cardBg}`}>
+                <div className="flex justify-between"><h3 className="text-sm font-bold">Edit Task</h3><button type="button" onClick={() => setEditingTask(null)}><Icon name="x" size={18} /></button></div>
+                <input type="text" value={editingTask.chapterTitle} onChange={(e) => setEditingTask({ ...editingTask, chapterTitle: e.target.value })} className={`w-full px-3 py-2 rounded-xl text-xs border ${inputBg}`} />
+                <input type="text" value={editingTask.title} onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })} className={`w-full px-3 py-2 rounded-xl text-xs border ${inputBg}`} />
+                <div className="grid grid-cols-2 gap-2">
+                  <input type="date" value={editingTask.date} onChange={(e) => setEditingTask({ ...editingTask, date: e.target.value })} className={`px-3 py-2 rounded-xl text-xs border ${inputBg}`} />
+                  <input type="number" value={editingTask.estimatedMins} onChange={(e) => setEditingTask({ ...editingTask, estimatedMins: Number(e.target.value) })} className={`px-3 py-2 rounded-xl text-xs border ${inputBg}`} />
+                </div>
+                <button type="submit" className="w-full py-2.5 rounded-xl bg-[#4F8EF7] text-white text-xs font-bold">Update</button>
+              </form>
+            </div>
+          )}
+
+          {resetConfirmType && (
+            <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
+              <div className={`w-full max-w-sm rounded-3xl border p-5 space-y-4 ${cardBg}`}>
+                <h3 className="text-sm font-bold text-red-400">Confirm Reset</h3>
+                {resetConfirmType === 'full' && <input type="text" placeholder="Type RESET" value={fullResetInput} onChange={(e) => setFullResetInput(e.target.value)} className={`w-full px-3 py-2 rounded-xl text-xs border ${inputBg}`} />}
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setResetConfirmType(null)} className="px-4 py-2 rounded-xl text-xs border border-white/10">Cancel</button>
+                  <button onClick={() => executeReset(resetConfirmType)} className="px-4 py-2 rounded-xl bg-red-500 text-white text-xs font-bold">Confirm</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {importPreview && (
+            <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
+              <div className={`w-full max-w-sm rounded-3xl border p-5 space-y-4 ${cardBg}`}>
+                <h3 className="text-sm font-bold text-[#4F8EF7]">Restore Backup?</h3>
+                <p className="text-xs">Tasks: {importPreview.taskCount} | Chapters: {importPreview.chapterCount}</p>
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setImportPreview(null)} className="px-4 py-2 rounded-xl text-xs border border-white/10">Cancel</button>
+                  <button onClick={confirmRestoreBackup} className="px-4 py-2 rounded-xl bg-[#4F8EF7] text-white text-xs font-bold">Restore</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <nav className={`fixed bottom-0 inset-x-0 z-40 backdrop-blur-xl border-t px-2 py-2 ${isDark ? 'bg-[#090A0D]/90 border-white/[0.08]' : 'bg-white/90 border-slate-200'}`}>
+            <div className="max-w-lg mx-auto grid grid-cols-5 gap-1">
+              {[
+                { id: 'home', icon: 'layout-dashboard', label: 'Home' },
+                { id: 'subjects', icon: 'book-open', label: 'Subjects' },
+                { id: 'planner', icon: 'calendar', label: 'Planner' },
+                { id: 'analytics', icon: 'bar-chart-2', label: 'Analytics' },
+                { id: 'more', icon: 'grid', label: 'More' }
+              ].map((nav) => (
+                <button key={nav.id} onClick={() => setActiveTab(nav.id)} className={`flex flex-col items-center justify-center py-1.5 rounded-xl ${activeTab === nav.id ? 'text-[#4F8EF7]' : subText}`}>
+                  <Icon name={nav.icon} size={18} />
+                  <span className="text-[10px] font-semibold mt-1">{nav.label}</span>
+                </button>
+              ))}
+            </div>
+          </nav>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
